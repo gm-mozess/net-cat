@@ -2,33 +2,28 @@ package server
 
 import (
 	"fmt"
+	"log"
 	"net"
 	"os"
 )
 
-var ChanError = make(chan error)
 var Port string
 
 func ServerTCP() {
 	listener, err := net.Listen("tcp", ":"+Port)
-	if err != nil {
-		ChanError <- err
-		
-	}
+	CatchError(err)
 
 	fmt.Println("Listening on the port :" + Port)
 
 	defer listener.Close()
 
 	for {
+
 		conn, err := listener.Accept()
-		if err != nil {
-			ChanError <- err
-			return
-			
-		}
+		CatchError(err)
 		go IncommingConnections(conn)
 	}
+
 }
 
 func IncommingConnections(conn net.Conn) {
@@ -39,16 +34,19 @@ func IncommingConnections(conn net.Conn) {
 
 func WelcomeMessage() []byte {
 	file, err := os.Open("./pingoin.txt")
-	ChanError <- err
+	CatchError(err)
 
 	defer file.Close()
 
 	buffer := make([]byte, 1024)
 	n, err := file.Read(buffer)
+	CatchError(err)
 
-	if err != nil {
-		ChanError <- err
-		return nil
-	}
 	return buffer[:n]
+}
+
+func CatchError(err error) {
+	if err != nil {
+		log.Fatal(err)
+	}
 }

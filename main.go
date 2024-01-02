@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"log"
 	"netcat/server"
 	"os"
 )
@@ -18,16 +17,9 @@ func main() {
 		server.Port = os.Args[1]
 	default:
 		fmt.Println("[USAGE]: ./TCPChat $port")
+		return
 	}
 
-	go func() {
-			for err := range server.ChanError{
-				if err != nil{
-					log.Fatal(err)
-				}
-			}
-	}()
-
 	server.ServerTCP()
-	
+
 }
