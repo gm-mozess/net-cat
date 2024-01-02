@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"log"
 	"netcat/server"
 	"os"
 )
@@ -19,12 +20,14 @@ func main() {
 		fmt.Println("[USAGE]: ./TCPChat $port")
 	}
 
-	go func(errChannel chan error) error{
-			errChannel <- server.GlobalErr
-			return server.GlobalErr
+	go func() {
+			for err := range server.ChanError{
+				if err != nil{
+					log.Fatal(err)
+				}
+			}
+	}()
 
-	}(server.ChanError)
-
-	server.ServerTcp()
+	server.ServerTCP()
 	
 }

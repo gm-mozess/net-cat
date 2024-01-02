@@ -1,50 +1,54 @@
 package server
 
 import (
-	"bufio"
 	"fmt"
 	"net"
 	"os"
 )
 
 var ChanError = make(chan error)
-var GlobalErr error
 var Port string
 
-func ServerTcp() {
-	fmt.Println("Listening on the port :"+Port)
+func ServerTCP() {
 	listener, err := net.Listen("tcp", ":"+Port)
-	GlobalErr = err
-	
+	if err != nil {
+		ChanError <- err
+		
+	}
+
+	fmt.Println("Listening on the port :" + Port)
 
 	defer listener.Close()
 
 	for {
-
 		conn, err := listener.Accept()
-		GlobalErr = err
-
-		go SendToServer(conn)
+		if err != nil {
+			ChanError <- err
+			return
+			
+		}
+		go IncommingConnections(conn)
 	}
 }
 
-/* func ClientTcp() {
-	conn, err := net.Dial("tcp", ":"+Port)
-	GlobalErr <- err
+func IncommingConnections(conn net.Conn) {
+	//time := time.Now().Format("01-01-1889 13:45:45 GHL")
+	conn.Write(WelcomeMessage())
 
-	defer conn.Close()
+}
 
-	SendToServer(conn)
-	ReadFromServer(conn)
-} */
+func WelcomeMessage() []byte {
+	file, err := os.Open("./pingoin.txt")
+	ChanError <- err
 
+	defer file.Close()
 
-func SendToServer(conn net.Conn) {
+	buffer := make([]byte, 1024)
+	n, err := file.Read(buffer)
 
-	scanner := bufio.NewScanner(os.Stdin)
-	_ , err := conn.Write(scanner.Bytes())
-	GlobalErr = err
-
-	fmt.Println(string(scanner.Bytes()))
-	
+	if err != nil {
+		ChanError <- err
+		return nil
+	}
+	return buffer[:n]
 }
