@@ -3,14 +3,19 @@ package server
 import (
 	"bufio"
 	"fmt"
+	"io"
 	"log"
 	"net"
 	"os"
 	"strings"
+	"sync"
 )
 
-var Port string
-var maxConnect int
+var (
+	Port string
+	maxConnect int
+	maxConnectMutex sync.Mutex
+)
 
 func ServerTCP() {
 	listener, err := net.Listen("tcp", ":"+Port)
@@ -21,17 +26,11 @@ func ServerTCP() {
 	defer listener.Close()
 
 	for {
-		if maxConnect < 11{
-			
-			conn, err := listener.Accept()
-			CatchError(err)
-			maxConnect++
-			go IncommingConnections(conn)
-		}
-
-
+		conn, err := listener.Accept()
+		CatchError(err)
+		go IncommingConnections(conn)
+		go Writer(conn)
 	}
-
 }
 
 func IncommingConnections(conn net.Conn) {
@@ -39,16 +38,36 @@ func IncommingConnections(conn net.Conn) {
 	conn.Write(WelcomeMessage())
 	conn.Write([]byte("[ENTER YOUR NAME]: "))
 
-	for {
-		data := Reader(conn)
-		fmt.Println([]byte(data))
-		for data == "" {
-			conn.Write([]byte("[ENTER YOUR NAME]: "))
-			data = Reader(conn)
-		}
+	userName := Reader(conn)
 
+	for userName == "" {
+		conn.Write([]byte("[ENTER YOUR NAME]: "))
+		userName = Reader(conn)
+	}
+
+	for {
+		if maxConnect < 11 {
+
+			if userName == "/logout" {
+				maxConnectMutex.Lock()
+				maxConnect--
+				maxConnectMutex.Unlock()
+				return
+			}
+			
+			maxConnectMutex.Lock()
+			maxConnect++
+			maxConnectMutex.Unlock()
+
+			conn.Write([]byte("["+userName+"] Enter a message (/logout to exit): "))
+			
+		}else{
+			conn.Write([]byte("Maximum connection reached!"))
+			return
+		}
 	}
 }
+
 
 func Reader(conn net.Conn) string {
 
@@ -57,10 +76,32 @@ func Reader(conn net.Conn) string {
 	netData = strings.Trim(netData, "\n")
 
 	if err != nil {
-		log.Fatal("Error:", err)
+		if err == io.EOF {
+			return "/logout"
+		} else {
+			log.Fatal("Error:", err)
+		}
 	}
 	return netData
 }
+
+
+func Writer(conn net.Conn) {
+
+	writer := bufio.NewWriter(conn)
+	scanner := bufio.NewScanner(conn)
+
+	for scanner.Scan(){
+		message := scanner.Text()
+
+		_,err := writer.WriteString(message+"\n")
+		if err != io.EOF{
+			CatchError(err)
+		}
+	}
+	writer.Flush()
+}
+
 
 func WelcomeMessage() []byte {
 	file, err := os.Open("./pingoin.txt")
@@ -74,6 +115,7 @@ func WelcomeMessage() []byte {
 
 	return buffer[:n]
 }
+
 
 func CatchError(err error) {
 	if err != nil {
