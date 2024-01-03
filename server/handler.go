@@ -15,7 +15,7 @@ import (
 var (
 	Port            string
 	maxConnectMutex sync.Mutex
-	userName        = ""
+	userName        string
 )
 
 func ServerTCP() {
@@ -40,7 +40,8 @@ func IncommingConnections(conn net.Conn) {
 	if cnxA > 10 {
 		return
 	} else {
-		fmt.Fprint(conn,string(WelcomeMessage()))
+		fmt.Fprint(conn, string(WelcomeMessage()))
+		userName = ""
 		//conn.Write(WelcomeMessage())
 		for userName == "" {
 			conn.Write([]byte("[ENTER YOUR NAME]: "))
@@ -52,7 +53,8 @@ func IncommingConnections(conn net.Conn) {
 		maxConnectMutex.Unlock()
 
 		tab = append(tab, conn)
-		go Writer(conn, tab)
+		MessageWriter(conn, tab)
+
 	}
 
 }
@@ -73,21 +75,20 @@ func Reader(conn net.Conn) string {
 	return netData
 }
 
-func Writer(conn net.Conn, tab []net.Conn) {
+func MessageWriter(conn net.Conn, tab []net.Conn) {
 
-		time := time.Now().Format("01-01-1889 13:45:45")
-		writer := bufio.NewWriter(conn)
-		scanner := bufio.NewScanner(conn)
+	time := time.Now().Format("2006-01-02 15:04:05")
+	writer := bufio.NewWriter(conn)
 
-		for scanner.Scan() {
-			message := scanner.Text()
+	for range tab {
 
-			_, err := writer.WriteString("[" + time + "][" + userName + "]:" + message)
-			if err != io.EOF {
-				CatchError(err)
-			}
+		_, err := writer.WriteString("[" + time + "][" + userName + "]:")
+		if err != io.EOF {
+			CatchError(err)
 		}
-		writer.Flush()
+	}
+
+	writer.Flush()
 }
 
 func WelcomeMessage() []byte {
