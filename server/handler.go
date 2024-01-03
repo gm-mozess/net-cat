@@ -9,12 +9,13 @@ import (
 	"os"
 	"strings"
 	"sync"
+	"time"
 )
 
 var (
-	Port string
-	maxConnect int
+	Port            string
 	maxConnectMutex sync.Mutex
+	userName        = ""
 )
 
 func ServerTCP() {
@@ -29,45 +30,32 @@ func ServerTCP() {
 		conn, err := listener.Accept()
 		CatchError(err)
 		go IncommingConnections(conn)
-		go Writer(conn)
+
 	}
 }
 
 func IncommingConnections(conn net.Conn) {
-	//time := time.Now().Format("01-01-1889 13:45:45 GHL")
-	conn.Write(WelcomeMessage())
-	conn.Write([]byte("[ENTER YOUR NAME]: "))
-
-	userName := Reader(conn)
-
-	for userName == "" {
-		conn.Write([]byte("[ENTER YOUR NAME]: "))
-		userName = Reader(conn)
-	}
-
-	for {
-		if maxConnect < 11 {
-
-			if userName == "/logout" {
-				maxConnectMutex.Lock()
-				maxConnect--
-				maxConnectMutex.Unlock()
-				return
-			}
-			
-			maxConnectMutex.Lock()
-			maxConnect++
-			maxConnectMutex.Unlock()
-
-			conn.Write([]byte("["+userName+"] Enter a message (/logout to exit): "))
-			
-		}else{
-			conn.Write([]byte("Maximum connection reached!"))
-			return
+	var cnxA int
+	var tab []net.Conn
+	if cnxA > 10 {
+		return
+	} else {
+		fmt.Fprint(conn,string(WelcomeMessage()))
+		//conn.Write(WelcomeMessage())
+		for userName == "" {
+			conn.Write([]byte("[ENTER YOUR NAME]: "))
+			userName = Reader(conn)
 		}
-	}
-}
 
+		maxConnectMutex.Lock()
+		cnxA++
+		maxConnectMutex.Unlock()
+
+		tab = append(tab, conn)
+		go Writer(conn, tab)
+	}
+
+}
 
 func Reader(conn net.Conn) string {
 
@@ -85,23 +73,22 @@ func Reader(conn net.Conn) string {
 	return netData
 }
 
+func Writer(conn net.Conn, tab []net.Conn) {
 
-func Writer(conn net.Conn) {
+		time := time.Now().Format("01-01-1889 13:45:45")
+		writer := bufio.NewWriter(conn)
+		scanner := bufio.NewScanner(conn)
 
-	writer := bufio.NewWriter(conn)
-	scanner := bufio.NewScanner(conn)
+		for scanner.Scan() {
+			message := scanner.Text()
 
-	for scanner.Scan(){
-		message := scanner.Text()
-
-		_,err := writer.WriteString(message+"\n")
-		if err != io.EOF{
-			CatchError(err)
+			_, err := writer.WriteString("[" + time + "][" + userName + "]:" + message)
+			if err != io.EOF {
+				CatchError(err)
+			}
 		}
-	}
-	writer.Flush()
+		writer.Flush()
 }
-
 
 func WelcomeMessage() []byte {
 	file, err := os.Open("./pingoin.txt")
@@ -115,7 +102,6 @@ func WelcomeMessage() []byte {
 
 	return buffer[:n]
 }
-
 
 func CatchError(err error) {
 	if err != nil {
