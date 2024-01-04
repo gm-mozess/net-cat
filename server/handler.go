@@ -16,7 +16,11 @@ var (
 	Port            string
 	maxConnectMutex sync.Mutex
 	userName        string
+	message         string
+	cnxA            int
 )
+
+var timer = time.Now().Format("2006-01-02 15:04:05")
 
 func ServerTCP() {
 	listener, err := net.Listen("tcp", ":"+Port)
@@ -35,7 +39,7 @@ func ServerTCP() {
 }
 
 func IncommingConnections(conn net.Conn) {
-	var cnxA int
+
 	var tab []net.Conn
 	if cnxA > 10 {
 		return
@@ -44,19 +48,26 @@ func IncommingConnections(conn net.Conn) {
 		userName = ""
 		//conn.Write(WelcomeMessage())
 		for userName == "" {
-			conn.Write([]byte("[ENTER YOUR NAME]: "))
+			fmt.Fprint(conn, "[ENTER YOUR NAME]: ")
 			userName = Reader(conn)
 		}
 
 		maxConnectMutex.Lock()
 		cnxA++
 		maxConnectMutex.Unlock()
-
 		tab = append(tab, conn)
-		MessageWriter(conn, tab)
+
+		fmt.Println(conn)
+		
+		if len(tab) > 1 {
+			MessageWriter(conn, tab)
+			MessageReader(conn, tab)
+		}else{
+			fmt.Fprintln(conn, "You need to be a peer for chating!")
+			fmt.Fprint(conn, "["+timer+"]["+userName+"]:"+message)
+		}
 
 	}
-
 }
 
 func Reader(conn net.Conn) string {
@@ -77,18 +88,23 @@ func Reader(conn net.Conn) string {
 
 func MessageWriter(conn net.Conn, tab []net.Conn) {
 
-	time := time.Now().Format("2006-01-02 15:04:05")
 	writer := bufio.NewWriter(conn)
 
-	for range tab {
-
-		_, err := writer.WriteString("[" + time + "][" + userName + "]:")
-		if err != io.EOF {
-			CatchError(err)
+	for _, cnx := range tab {
+		if cnx != conn {
+			_, err := writer.WriteString("[" + timer + "][" + userName + "]:" + message)
+			if err != io.EOF {
+				CatchError(err)
+			}
 		}
 	}
 
 	writer.Flush()
+}
+
+func MessageReader(conn net.Conn, tab []net.Conn) {
+	message = Reader(conn)
+	MessageWriter(conn, tab)
 }
 
 func WelcomeMessage() []byte {
