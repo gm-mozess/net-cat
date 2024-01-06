@@ -18,6 +18,7 @@ var (
 	userName        string
 	message         string
 	cnxA            int
+	clients         []net.Conn
 )
 
 var timer = time.Now().Format("2006-01-02 15:04:05")
@@ -40,7 +41,6 @@ func ServerTCP() {
 
 func IncommingConnections(conn net.Conn) {
 
-	var tab []string
 	if cnxA > 10 {
 		return
 	} else {
@@ -52,22 +52,18 @@ func IncommingConnections(conn net.Conn) {
 			userName = Reader(conn)
 		}
 
-		maxConnectMutex.Lock()
-		cnxA++
-		maxConnectMutex.Unlock()
-		tab = append(tab, userName)
-		
-
-		fmt.Println(cnxA)
-
 		if cnxA > 1 {
 			fmt.Fprint(conn, "["+timer+"]["+userName+"]:")
-			MessageWriter(conn, tab)
-			MessageReader(conn, tab)
 		} else {
 			fmt.Fprintln(conn, "You need to be a peer for chating!")
-			fmt.Fprint(conn, "["+timer+"]["+userName+"]:"+message)
+			fmt.Fprint(conn, "["+timer+"]["+userName+"]:")
 		}
+
+	  	maxConnectMutex.Lock()
+		cnxA++
+		clients = append(clients, conn)
+		maxConnectMutex.Unlock()
+		MessageWriter(conn)
 	}
 }
 
@@ -87,26 +83,25 @@ func Reader(conn net.Conn) string {
 	return netData
 }
 
-func MessageWriter(conn net.Conn, tab []string) {
+func MessageWriter(conn net.Conn) {
+	message = Reader(conn)
+	BroadcastMessage(message, conn)
 
-	writer := bufio.NewWriter(conn)
+}
 
-	for _, user := range tab {
-		if user != userName {
-			_, err := writer.WriteString("[" + timer + "][" + userName + "]:" + message)
-			if err != io.EOF {
-				CatchError(err)
-			}
+func BroadcastMessage(msg string, sender net.Conn) {
+	fmt.Println(len(clients))
+	// Iterate over all connected clients and send the message
+	for _, client := range clients {
+		if client != sender {
+			writer := bufio.NewWriter(client)
+			_, err := writer.WriteString("["+timer+"]["+userName+"]:"+msg+"\n")
+			CatchError(err)
+			writer.Flush()
 		}
 	}
-
-	writer.Flush()
 }
 
-func MessageReader(conn net.Conn, tab []string) {
-	message = Reader(conn)
-	MessageWriter(conn, tab)
-}
 
 func WelcomeMessage() []byte {
 	file, err := os.Open("./pingoin.txt")
