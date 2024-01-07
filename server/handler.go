@@ -16,11 +16,10 @@ var (
 	Port            string
 	maxConnectMutex sync.Mutex
 	userName        string
-	message         string
 	cnxA            int
-	clients         []net.Conn
 )
 
+var clients = make(map[net.Conn]string)
 var timer = time.Now().Format("2006-01-02 15:04:05")
 
 func ServerTCP() {
@@ -48,22 +47,17 @@ func IncommingConnections(conn net.Conn) {
 		userName = ""
 		//conn.Write(WelcomeMessage())
 		for userName == "" {
-			fmt.Fprint(conn, "[ENTER YOUR NAME]: ")
+			_,err := fmt.Fprint(conn, "\n[ENTER YOUR NAME]: ")
+			CatchError(err)
 			userName = Reader(conn)
 		}
 
-		if cnxA > 1 {
-			fmt.Fprint(conn, "["+timer+"]["+userName+"]:")
-		} else {
-			fmt.Fprintln(conn, "You need to be a peer for chating!")
-			fmt.Fprint(conn, "["+timer+"]["+userName+"]:")
-		}
-
-	  	maxConnectMutex.Lock()
+		maxConnectMutex.Lock()
 		cnxA++
-		clients = append(clients, conn)
+		clients[conn] = userName
 		maxConnectMutex.Unlock()
-		MessageWriter(conn)
+		go BroadcastMessage(conn)
+
 	}
 }
 
@@ -83,25 +77,37 @@ func Reader(conn net.Conn) string {
 	return netData
 }
 
-func MessageWriter(conn net.Conn) {
-	message = Reader(conn)
-	BroadcastMessage(message, conn)
-
+func MessageWriter(conn net.Conn) string {
+	var msg string
+	for msg == "" {
+		_, err := fmt.Fprint(conn, "["+timer+"]["+userName+"]:")
+		CatchError(err)
+		msg = Reader(conn)
+	}
+	return msg
 }
 
-func BroadcastMessage(msg string, sender net.Conn) {
-	fmt.Println(len(clients))
+func BroadcastMessage(sender net.Conn) {
+
+	var msg = MessageWriter(sender)
+
 	// Iterate over all connected clients and send the message
-	for _, client := range clients {
-		if client != sender {
-			writer := bufio.NewWriter(client)
-			_, err := writer.WriteString("["+timer+"]["+userName+"]:"+msg+"\n")
+	for conn := range clients {
+		if conn != sender {
+			_, err := fmt.Fprintln(conn,"\n[" + timer + "][" + clients[sender] + "]:" + msg)
 			CatchError(err)
-			writer.Flush()
 		}
 	}
+	BroadCastInput()
 }
 
+func BroadCastInput() {
+
+	for cn := range clients {
+		_, err := fmt.Fprint(cn, "[" + timer + "][" + clients[cn] + "]:")
+		CatchError(err)
+	}
+}
 
 func WelcomeMessage() []byte {
 	file, err := os.Open("./pingoin.txt")
