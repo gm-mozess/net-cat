@@ -43,11 +43,11 @@ func IncommingConnections(conn net.Conn) {
 	if cnxA > 10 {
 		return
 	} else {
-		fmt.Fprint(conn, string(WelcomeMessage()))
+		fmt.Fprintln(conn, string(WelcomeMessage()))
 		userName = ""
 		//conn.Write(WelcomeMessage())
 		for userName == "" {
-			_,err := fmt.Fprint(conn, "\n[ENTER YOUR NAME]: ")
+			_, err := fmt.Fprint(conn, "[ENTER YOUR NAME]: ")
 			CatchError(err)
 			userName = Reader(conn)
 		}
@@ -56,8 +56,8 @@ func IncommingConnections(conn net.Conn) {
 		cnxA++
 		clients[conn] = userName
 		maxConnectMutex.Unlock()
+		LogSignal(conn)
 		go BroadcastMessage(conn)
-
 	}
 }
 
@@ -69,13 +69,15 @@ func Reader(conn net.Conn) string {
 
 	if err != nil {
 		if err == io.EOF {
-			return "/logout"
+			_, err := fmt.Fprintln(conn, "\n"+userName+" has left our chat...")
+			CatchError(err)
 		} else {
 			log.Fatal("Error:", err)
 		}
 	}
 	return netData
 }
+
 
 func MessageWriter(conn net.Conn) string {
 	var msg string
@@ -87,24 +89,37 @@ func MessageWriter(conn net.Conn) string {
 	return msg
 }
 
+
 func BroadcastMessage(sender net.Conn) {
 
 	var msg = MessageWriter(sender)
-
 	// Iterate over all connected clients and send the message
 	for conn := range clients {
 		if conn != sender {
-			_, err := fmt.Fprintln(conn,"\n[" + timer + "][" + clients[sender] + "]:" + msg)
+			_, err := fmt.Fprintln(conn, "\n["+timer+"]["+clients[sender]+"]:"+msg)
 			CatchError(err)
 		}
 	}
 	BroadCastInput()
 }
 
+
+func LogSignal(loger net.Conn) {
+	for conn := range clients {
+		if conn != loger {
+			_, err := fmt.Fprintln(conn, "\n"+clients[loger]+" has joinded our chat...")
+			CatchError(err)
+			_, err = fmt.Fprint(conn, "["+timer+"]["+clients[conn]+"]:")
+			CatchError(err)
+		}
+	}
+}
+
+
 func BroadCastInput() {
 
 	for cn := range clients {
-		_, err := fmt.Fprint(cn, "[" + timer + "][" + clients[cn] + "]:")
+		_, err := fmt.Fprint(cn, "["+timer+"]["+clients[cn]+"]:")
 		CatchError(err)
 	}
 }
