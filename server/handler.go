@@ -78,11 +78,10 @@ func Reader(conn net.Conn) string {
 	return netData
 }
 
-
 func MessageWriter(conn net.Conn) string {
 	var msg string
 	for msg == "" {
-		_, err := fmt.Fprint(conn, "["+timer+"]["+userName+"]:")
+		_, err := fmt.Fprint(conn, "["+timer+"]["+clients[conn]+"]:")
 		CatchError(err)
 		msg = Reader(conn)
 	}
@@ -91,16 +90,23 @@ func MessageWriter(conn net.Conn) string {
 
 
 func BroadcastMessage(sender net.Conn) {
+	for {
+		var msg = MessageWriter(sender)
+		// Iterate over all connected clients and send the message
+		for conn := range clients {
+			if conn != sender {
+				_, err := fmt.Fprintln(conn, "\n["+timer+"]["+clients[sender]+"]:"+msg)
+				CatchError(err)
+			}
+		}
 
-	var msg = MessageWriter(sender)
-	// Iterate over all connected clients and send the message
-	for conn := range clients {
-		if conn != sender {
-			_, err := fmt.Fprintln(conn, "\n["+timer+"]["+clients[sender]+"]:"+msg)
-			CatchError(err)
+		for conn := range clients {
+			if conn != sender {
+				_, err := fmt.Fprint(conn, "["+timer+"]["+clients[conn]+"]:")
+				CatchError(err)
+			}
 		}
 	}
-	BroadCastInput()
 }
 
 
@@ -112,15 +118,6 @@ func LogSignal(loger net.Conn) {
 			_, err = fmt.Fprint(conn, "["+timer+"]["+clients[conn]+"]:")
 			CatchError(err)
 		}
-	}
-}
-
-
-func BroadCastInput() {
-
-	for cn := range clients {
-		_, err := fmt.Fprint(cn, "["+timer+"]["+clients[cn]+"]:")
-		CatchError(err)
 	}
 }
 
