@@ -17,6 +17,7 @@ var (
 	maxConnectMutex sync.Mutex
 	userName        string
 	cnxA            int
+	loggedOut       string
 )
 
 var clients = make(map[net.Conn]string)
@@ -62,17 +63,16 @@ func IncommingConnections(conn net.Conn) {
 }
 
 func Reader(conn net.Conn) string {
-
-	// Read data from the client
 	netData, err := bufio.NewReader(conn).ReadString('\n')
 	netData = strings.Trim(netData, "\n")
 
 	if err != nil {
 		if err == io.EOF {
-			_, err := fmt.Fprintln(conn, "\n"+userName+" has left our chat...")
-			CatchError(err)
+			loggedOut = clients[conn]
+			clients[conn] = "" // Set the username to an empty string to indicate disconnection
+			return loggedOut
 		} else {
-			log.Fatal("Error:", err)
+			fmt.Println(err)
 		}
 	}
 	return netData
@@ -81,17 +81,26 @@ func Reader(conn net.Conn) string {
 func MessageWriter(conn net.Conn) string {
 	var msg string
 	for msg == "" {
-		_, err := fmt.Fprint(conn, "["+timer+"]["+clients[conn]+"]:")
-		CatchError(err)
+		fmt.Fprint(conn, "["+timer+"]["+clients[conn]+"]:")
 		msg = Reader(conn)
 	}
 	return msg
 }
 
-
 func BroadcastMessage(sender net.Conn) {
 	for {
 		var msg = MessageWriter(sender)
+
+		// Check for disconnection
+		for conn := range clients {
+
+			if clients[conn] == "" {
+				fmt.Println(loggedOut)
+				LogLogout(conn, loggedOut)
+				return
+			}
+		}
+
 		// Iterate over all connected clients and send the message
 		for conn := range clients {
 			if conn != sender {
@@ -109,7 +118,6 @@ func BroadcastMessage(sender net.Conn) {
 	}
 }
 
-
 func LogSignal(loger net.Conn) {
 	for conn := range clients {
 		if conn != loger {
@@ -119,6 +127,25 @@ func LogSignal(loger net.Conn) {
 			CatchError(err)
 		}
 	}
+}
+
+func LogLogout(disconnect net.Conn, loggedUser string) {
+
+	for conn := range clients {
+		if conn != disconnect && clients[conn] != "" {
+			_, err := fmt.Fprintln(conn, "\n"+loggedUser+" has left our chat...")
+			CatchError(err)
+			_, err = fmt.Fprint(conn, "["+timer+"]["+clients[conn]+"]:")
+			CatchError(err)
+
+		}
+	}
+
+	// Remove the disconnected client from the clients map
+	maxConnectMutex.Lock()
+	delete(clients, disconnect)
+	cnxA--
+	maxConnectMutex.Unlock()
 }
 
 func WelcomeMessage() []byte {
