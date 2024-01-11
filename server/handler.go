@@ -4,7 +4,6 @@ import (
 	"bufio"
 	"fmt"
 	"io"
-	"log"
 	"net"
 	"os"
 	"strings"
@@ -28,6 +27,7 @@ func ServerTCP() {
 	CatchError(err)
 
 	fmt.Println("Listening on the port :" + Port)
+	EmptyFile()
 
 	defer listener.Close()
 
@@ -58,6 +58,7 @@ func IncommingConnections(conn net.Conn) {
 		clients[conn] = userName
 		maxConnectMutex.Unlock()
 		LogSignal(conn)
+		UpdateChat(conn)
 		go BroadcastMessage(conn)
 	}
 }
@@ -87,15 +88,15 @@ func MessageWriter(conn net.Conn) string {
 	return msg
 }
 
+
 func BroadcastMessage(sender net.Conn) {
 	for {
 		var msg = MessageWriter(sender)
+		maxConnectMutex.Lock()
 
 		// Check for disconnection
 		for conn := range clients {
-
 			if clients[conn] == "" {
-				fmt.Println(loggedOut)
 				LogLogout(conn, loggedOut)
 				return
 			}
@@ -105,16 +106,26 @@ func BroadcastMessage(sender net.Conn) {
 		for conn := range clients {
 			if conn != sender {
 				_, err := fmt.Fprintln(conn, "\n["+timer+"]["+clients[sender]+"]:"+msg)
-				CatchError(err)
+				if err != nil {
+					fmt.Println("Error writing to connection:", err)
+					LogLogout(conn, loggedOut) // Disconnect client on write error
+					return
+				}
 			}
 		}
 
+		saved := "[" + timer + "][" + clients[sender] + "]:" + msg
+		SaveMessage(saved)
+
+		// Write to the sender's connection
 		for conn := range clients {
 			if conn != sender {
 				_, err := fmt.Fprint(conn, "["+timer+"]["+clients[conn]+"]:")
 				CatchError(err)
 			}
 		}
+
+		maxConnectMutex.Unlock()
 	}
 }
 
@@ -148,6 +159,37 @@ func LogLogout(disconnect net.Conn, loggedUser string) {
 	maxConnectMutex.Unlock()
 }
 
+func UpdateChat(conn net.Conn) {
+
+	file, err := os.Open("./savedChat.txt")
+	CatchError(err)
+
+	scanner := bufio.NewScanner(file)
+	for scanner.Scan() {
+		_, err := fmt.Fprintln(conn, scanner.Text())
+		CatchError(err)
+	}
+	defer file.Close()
+}
+
+func EmptyFile() {
+	filepath := "./savedChat.txt"
+	// Open the file with read-write mode and truncate the content to zero bytes
+	file, err := os.OpenFile(filepath, os.O_RDWR|os.O_TRUNC, 0666)
+	CatchError(err)
+	defer file.Close()
+}
+
+func SaveMessage(msg string) {
+	file, err := os.OpenFile("./savedChat.txt", os.O_WRONLY|os.O_APPEND|os.O_CREATE, 0666)
+	CatchError(err)
+
+	_, err = io.WriteString(file, msg+"\n")
+	CatchError(err)
+
+	defer file.Close()
+}
+
 func WelcomeMessage() []byte {
 	file, err := os.Open("./pingoin.txt")
 	CatchError(err)
@@ -163,6 +205,7 @@ func WelcomeMessage() []byte {
 
 func CatchError(err error) {
 	if err != nil {
-		log.Fatal(err)
+		fmt.Println(err)
+		return
 	}
 }
