@@ -17,7 +17,6 @@ var (
 	userName        string
 	cnxA            int
 	loggedOut       string
-
 )
 
 var users = make(map[string]bool)
@@ -48,19 +47,17 @@ func IncommingConnections(conn net.Conn) {
 	} else {
 		fmt.Fprintln(conn, string(WelcomeMessage()))
 		userName = ""
-		//conn.Write(WelcomeMessage())
 		for userName == "" {
-			_, err := fmt.Fprint(conn, "[ENTER YOUR NAME]: ")
-			CatchError(err)
+			fmt.Fprint(conn, "[ENTER YOUR NAME]: ")
 			userName = Reader(conn)
-			if CheckUsername(userName, conn){
+			if CheckUsername(strings.ToLower(userName), conn) || CorrectTheUsername(userName, conn) {
 				userName = ""
 			}
 		}
 
 		maxConnectMutex.Lock()
 		cnxA++
-		clients[conn] = userName
+		clients[conn] = strings.ToLower(userName)
 		users[userName] = true
 		maxConnectMutex.Unlock()
 		LogSignal(conn)
@@ -74,7 +71,8 @@ func Reader(conn net.Conn) string {
 	netData = strings.Trim(netData, "\n")
 
 	if err != nil {
-		if err == io.EOF {
+		//if not a logged user will be deleted
+		if err == io.EOF || CheckUsername(loggedOut, conn) {
 			loggedOut = clients[conn]
 			clients[conn] = "" // Set the username to an empty string to indicate disconnection
 			users[loggedOut] = false
@@ -129,6 +127,7 @@ func BroadcastMessage(sender net.Conn) {
 				CatchError(err)
 			}
 		}
+		time.Sleep(1000 * time.Millisecond)
 
 	}
 }
@@ -148,11 +147,8 @@ func LogLogout(disconnect net.Conn, loggedUser string) {
 
 	for conn := range clients {
 		if conn != disconnect && clients[conn] != "" {
-			_, err := fmt.Fprintln(conn, "\n"+loggedUser+" has left our chat...")
-			CatchError(err)
-			_, err = fmt.Fprint(conn, "["+timer+"]["+clients[conn]+"]:")
-			CatchError(err)
-
+			fmt.Fprintln(conn, "\n"+loggedUser+" has left our chat...")
+			fmt.Fprint(conn, "["+timer+"]["+clients[conn]+"]:")
 		}
 	}
 
@@ -194,16 +190,27 @@ func SaveMessage(msg string) {
 	defer file.Close()
 }
 
-
-func CheckUsername(user string, conn net.Conn) bool{
-	if users[user]{
-		_,err := fmt.Fprintln(conn, "This username has been already used!")
-		CatchError(err)
+func CheckUsername(user string, conn net.Conn) bool {
+	if users[user] {
+		fmt.Fprintln(conn, "This username has been already used!")
 		return true
 	}
 	return false
 }
 
+func CorrectTheUsername(s string, conn net.Conn) bool {
+	for _, val := range s {
+		if val < 0 || (val > 9 && val < 'A') || (val > 'Z' && val < 'a') || val > 'z' {
+			fmt.Fprintln(conn, "Username must be alphanumeric!")
+			return true
+		}
+	}
+	if len(s) > 20 {
+		fmt.Fprintln(conn, "Too much characters!")
+		return true
+	}
+	return false
+}
 
 func WelcomeMessage() []byte {
 	file, err := os.Open("./pingoin.txt")
