@@ -17,8 +17,10 @@ var (
 	userName        string
 	cnxA            int
 	loggedOut       string
+
 )
 
+var users = make(map[string]bool)
 var clients = make(map[net.Conn]string)
 var timer = time.Now().Format("2006-01-02 15:04:05")
 
@@ -51,11 +53,15 @@ func IncommingConnections(conn net.Conn) {
 			_, err := fmt.Fprint(conn, "[ENTER YOUR NAME]: ")
 			CatchError(err)
 			userName = Reader(conn)
+			if CheckUsername(userName, conn){
+				userName = ""
+			}
 		}
 
 		maxConnectMutex.Lock()
 		cnxA++
 		clients[conn] = userName
+		users[userName] = true
 		maxConnectMutex.Unlock()
 		LogSignal(conn)
 		UpdateChat(conn)
@@ -71,6 +77,7 @@ func Reader(conn net.Conn) string {
 		if err == io.EOF {
 			loggedOut = clients[conn]
 			clients[conn] = "" // Set the username to an empty string to indicate disconnection
+			users[loggedOut] = false
 			return loggedOut
 		} else {
 			fmt.Println(err)
@@ -88,11 +95,9 @@ func MessageWriter(conn net.Conn) string {
 	return msg
 }
 
-
 func BroadcastMessage(sender net.Conn) {
 	for {
 		var msg = MessageWriter(sender)
-		maxConnectMutex.Lock()
 
 		// Check for disconnection
 		for conn := range clients {
@@ -125,14 +130,13 @@ func BroadcastMessage(sender net.Conn) {
 			}
 		}
 
-		maxConnectMutex.Unlock()
 	}
 }
 
 func LogSignal(loger net.Conn) {
 	for conn := range clients {
 		if conn != loger {
-			_, err := fmt.Fprintln(conn, "\n"+clients[loger]+" has joinded our chat...")
+			_, err := fmt.Fprintln(conn, "\n"+clients[loger]+" has joined our chat...")
 			CatchError(err)
 			_, err = fmt.Fprint(conn, "["+timer+"]["+clients[conn]+"]:")
 			CatchError(err)
@@ -189,6 +193,17 @@ func SaveMessage(msg string) {
 
 	defer file.Close()
 }
+
+
+func CheckUsername(user string, conn net.Conn) bool{
+	if users[user]{
+		_,err := fmt.Fprintln(conn, "This username has been already used!")
+		CatchError(err)
+		return true
+	}
+	return false
+}
+
 
 func WelcomeMessage() []byte {
 	file, err := os.Open("./pingoin.txt")
