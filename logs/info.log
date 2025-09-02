@@ -1,0 +1,25 @@
+INFO	2025/09/02 00:49:25 server.go:74: Chat server started successfully on port 8080
+INFO	2025/09/02 00:49:25 server.go:407: Chat history cleared for new session
+INFO	2025/09/02 00:49:44 server.go:417: Welcome message loaded successfully (352 bytes)
+INFO	2025/09/02 00:49:55 server.go:417: Welcome message loaded successfully (352 bytes)
+INFO	2025/09/02 00:49:59 server.go:198: Username 'fsdf' accepted for client 127.0.0.1:33576
+INFO	2025/09/02 00:49:59 server.go:142: User 'fsdf' joined from 127.0.0.1:33576
+INFO	2025/09/02 00:49:59 server.go:152: Active users: 1/10
+INFO	2025/09/02 00:49:59 server.go:317: Join notification sent to 0 existing users
+INFO	2025/09/02 00:50:05 server.go:198: Username 'sfsf' accepted for client 127.0.0.1:41262
+INFO	2025/09/02 00:50:05 server.go:142: User 'sfsf' joined from 127.0.0.1:41262
+INFO	2025/09/02 00:50:05 server.go:152: Active users: 2/10
+INFO	2025/09/02 00:50:05 server.go:317: Join notification sent to 1 existing users
+INFO	2025/09/02 00:50:09 server.go:245: Message from sfsf: sdf
+INFO	2025/09/02 00:50:09 server.go:285: Message broadcast to 1 clients
+INFO	2025/09/02 00:50:12 server.go:245: Message from fsdf: sdfsqf
+INFO	2025/09/02 00:50:12 server.go:285: Message broadcast to 1 clients
+INFO	2025/09/02 00:50:16 server.go:336: User 'fsdf' left the chat. Remaining users: 1/10
+INFO	2025/09/02 00:50:16 server.go:354: Leave notification sent to 1 remaining users
+INFO	2025/09/02 00:50:18 server.go:336: User 'sfsf' left the chat. Remaining users: 0/10
+INFO	2025/09/02 00:50:18 server.go:354: Leave notification sent to 0 remaining users
+INFO	2025/09/02 00:51:08 server.go:74: Chat server started successfully on port 8080
+INFO	2025/09/02 00:51:08 server.go:407: Chat history cleared for new session
+INFO	2025/09/02 00:51:26 server.go:74: Chat server started successfully on port 8080
+INFO	2025/09/02 00:51:26 server.go:407: Chat history cleared for new session
+INFO	2025/09/02 00:51:33 server.go:417: Welcome message loaded successfully (352 bytes)
